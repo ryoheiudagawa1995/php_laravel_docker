@@ -7,6 +7,9 @@ use Illuminate\Http\Request;
 use App\Models\ContactForm;
 
 use Illuminate\Support\Facades\DB;
+use App\Services\CheckFormData;
+
+use App\Http\Requests\StoreContactForm;
 
 class ContactFormController extends Controller
 {
@@ -15,18 +18,41 @@ class ContactFormController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index(Request $request)
     {
         //
         //$contacts = ContactForm::all();
         //dd($contacts);
+        $search = $request->input('search');
 
-        $contacts = DB::table('contact_forms')
-        ->select('id', 'your_name', 'title', 'created_at')
-        ->orderBy('created_at', 'asc')
-        ->get();
+
+
+        // $contacts = DB::table('contact_forms')
+        // ->select('id', 'your_name', 'title', 'created_at')
+        // ->orderBy('created_at', 'asc')
+        // ->paginate(20);
+        // return view('contact.index', compact('contacts'));
+
+
+
+        $query = DB::table('contact_forms');
+
+        if($search !== null){
+          $search_split = mb_convert_kana($search, 's');
+
+          $search_split2 = preg_split('/[\s]+/', $search_split, -1, PREG_SPLIT_NO_EMPTY);
+          foreach($search_split2 as $value)
+          {
+            $query->where('your_name', 'like', '%'.$value.'%');
+          }
+        };
+
+        $query->select('id', 'your_name', 'title', 'created_at');
+        $query->orderBy('created_at', 'asc');
+        $contacts = $query->paginate(20);
+
         return view('contact.index', compact('contacts'));
-    }
+     }
 
     /**
      * Show the form for creating a new resource.
@@ -44,7 +70,7 @@ class ContactFormController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
-    public function store(Request $request)
+    public function store(StoreContactForm $request)
     {
         $contact = new ContactForm;
 
@@ -73,7 +99,10 @@ class ContactFormController extends Controller
     {
       $contact = ContactForm::find($id);
 
-      return view('contact.show', compact('contact'));
+      $gender = CheckFormData::CheckGender($contact);
+      $age = CheckFormData::CheckAge($contact);
+
+      return view('contact.show', compact('contact', 'age', 'gender'));
     }
 
     /**
@@ -100,6 +129,21 @@ class ContactFormController extends Controller
     public function update(Request $request, $id)
     {
         //
+        $contact = ContactForm::find($id);
+
+        $contact->your_name = $request->input('your_name');
+        $contact->title = $request->input('title');
+        $contact->email = $request->input('email');
+        $contact->url = $request->input('url');
+        $contact->gender = $request->input('gender');
+        $contact->age = $request->input('age');
+        $contact->contact = $request->input('contact');
+
+        //dd($your_name, $title);
+
+        $contact->save();
+
+        return redirect('contact/index');
     }
 
     /**
@@ -111,5 +155,9 @@ class ContactFormController extends Controller
     public function destroy($id)
     {
         //
+        $contact = ContactForm::find($id);
+        $contact->delete();
+
+        return redirect('contact/index');
     }
 }
